@@ -1,4 +1,4 @@
-﻿/**
+/**
  *	A Bedrock Implementation
  *	Nana C++ Library(https://nana.acemind.cn)
  *	Copyright(C) 2003-2024 Jinhao(cnjinhao@hotmail.com)
@@ -412,8 +412,9 @@ namespace detail
 							if ((WM_KEYFIRST <= msg.message && msg.message <= WM_KEYLAST) || !::IsDialogMessage(native_handle, &msg))
 							{
 								process_msg(this, msg);
-								wd_manager().remove_trash_handle(tid);
 							}
+							wd_manager().call_safe_place(tid);
+							wd_manager().remove_trash_handle(tid);
 						}
 					}
 				}

@@ -28,6 +28,7 @@
 #include <stdexcept>
 #include <algorithm>
 #include <iterator>
+#include <deque>
 
 namespace nana
 {
@@ -269,7 +270,9 @@ namespace detail
 				paint::image default_icon_big;
 				paint::image default_icon_small;
 
-				lite_map<basic_window*, std::vector<std::function<void()>>> safe_place;
+				// Destruction callbacks must outlive their basic_window. Record
+				// the owning thread while the window is still registered.
+				lite_map<thread_t, std::deque<std::function<void()>>> safe_place;
 			};
 		//end struct wdm_private_impl
 
@@ -1344,7 +1347,7 @@ namespace detail
 				if (!available(wd))
 					return;
 
-				impl_->safe_place[wd].emplace_back(std::move(fn));
+				impl_->safe_place[wd->thread_id].emplace_back(std::move(fn));
 			}
 		}
 
@@ -1352,19 +1355,27 @@ namespace detail
 		{
 			internal_scope_guard lock;
 
-			auto& safe_place = impl_->safe_place.table();
-			for (auto i = safe_place.begin(); i != safe_place.end();)
+			for (;;)
 			{
-				if (i->first->thread_id == thread_id)
+				auto& safe_place = impl_->safe_place.table();
+				auto i = impl_->safe_place.find(thread_id);
+				if (i == safe_place.end())
+					break;
+				if (i->second.empty())
 				{
-					auto functions = std::move(i->second);
-					i = safe_place.erase(i);
-
-					for (auto& fn : functions)
-						fn();
+					safe_place.erase(i);
+					continue;
 				}
-				else
-					++i;
+
+				auto fn = std::move(i->second.front());
+				i->second.pop_front();
+				if (i->second.empty())
+					safe_place.erase(i);
+
+				// A callback can open a nested event loop or enqueue more work.
+				// Keep pending actions available to that loop and never reuse a
+				// table iterator or queue reference after invoking user code.
+				fn();
 			}
 		}
 

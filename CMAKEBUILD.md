@@ -53,3 +53,16 @@ the full pass because scrollbar visibility can change the available line width.
 Caption replacement, undo/redo, font and DPI changes, loading, and wrap-mode
 changes retain their existing complete recalculations. The public API and
 horizontal range semantics are unchanged.
+
+## Deferred GUI cleanup
+
+`at_safe_place` captures the window's owning thread when the action is queued.
+Pending actions no longer retain a `basic_window*` which a nested modal loop
+may delete before dispatch. Destroy handlers can therefore finish cleanup even
+after the original window has been collected.
+
+Each thread's queue is drained in FIFO order, removing one action before it is
+called. No table iterators survive a callback, and remaining actions stay
+available to nested event loops. Actions queued by a callback are also drained
+before returning. The Windows modal loop dispatches these actions before
+collecting deleted windows, matching the other event loop branches.
