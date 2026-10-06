@@ -41,3 +41,15 @@ The focus/hover Nimbus effect is disabled explicitly on its read-only journal.
 Releasing a widget's capture only calls `ReleaseCapture` when its native window
 still owns Windows capture. A consumer can therefore clear Nana's capture state
 after `WM_CAPTURECHANGED` without releasing capture acquired by another window.
+
+## Incremental unwrapped text insertion
+
+`text_editor::put(std::wstring)` reuses the line sections already updated by
+selection removal and insertion. Previously it immediately measured every
+stored line a second time, making a journal with repeated append progressively
+more expensive. Unwrapped insertion now recalculates the content/scroll range
+without repeating that full document measurement. Wrapped insertion retains
+the full pass because scrollbar visibility can change the available line width.
+Caption replacement, undo/redo, font and DPI changes, loading, and wrap-mode
+changes retain their existing complete recalculations. The public API and
+horizontal range semantics are unchanged.

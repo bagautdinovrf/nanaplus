@@ -2206,7 +2206,11 @@ namespace nana::widgets::skeletons
 
 		impl_->undo.push(std::move(undo_ptr));
 
-		_m_reset_content_size(true);
+		// _m_erase_select() and _m_put() have already updated the sections of
+		// the affected lines. Unwrapped text can reuse those pixel extents;
+		// measuring the entire document again makes repeated append quadratic.
+		// Wrapping still needs a full pass when scrollbars change the width.
+		_m_reset_content_size(attributes_.line_wrapped);
 		if (perform_event)
 			textbase().text_changed();
 
