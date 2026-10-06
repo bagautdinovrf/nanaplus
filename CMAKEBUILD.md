@@ -35,3 +35,9 @@ The consumer checks repeated native DPI messages for 100/125/150/200 percent,
 HWND/Nana size agreement, fonts, focus, selection and available physical
 monitors. Offscreen visual previews are also compared with its FLTK interface.
 The focus/hover Nimbus effect is disabled explicitly on its read-only journal.
+
+## Windows capture cancellation protection
+
+Releasing a widget's capture only calls `ReleaseCapture` when its native window
+still owns Windows capture. A consumer can therefore clear Nana's capture state
+after `WM_CAPTURECHANGED` without releasing capture acquired by another window.

@@ -1,4 +1,9 @@
-# Nana C++ Library 
+# NanaPlus
+
+NanaPlus is the Nana fork used by CMakeBuild. The `main` branch contains the
+official `develop-1.8` snapshot `efa10557660b6454fc70cbb7f5a64796b1feb882`
+with CMakeBuild's text editor extensions and Windows mouse-capture fixes.
+See [CMAKEBUILD.md](CMAKEBUILD.md) for the changes and per-monitor DPI integration.
 
 [![Ubuntu](https://github.com/cnjinhao/nana/actions/workflows/ubuntu.yml/badge.svg)](https://github.com/cnjinhao/nana/actions?query=workflow%3AUbuntu)
 
@@ -20,16 +25,8 @@ Jinhao, [Ariel Viña Rodríguez].
 
 The best way to get help with Nana library is by visiting https://nana.acemind.cn/documentation
 
-## Sending a Pull Request ?
+## Branches and contributions
 
-This project encourage you to contribute through sending a pull request! There is a simple rule: please **don't** directly commit your contributions to the **master** branch. According to your commits, please choose the **hotfixes** branch or the **develop** branch. Thank you!
-
-## Introduction to the Repository
-
-There are two main branches with an infinite lifetime:
-* **master** is the main branch and it is marked as every version release.
-* **develop** is also another main branch where the source code reflects a state with the lastest delivered developement changes for the next release.
-
-Other branches:
-* **features** are used to develop new features for the upcoming or a distant future release. Feature branches are named as 'feature-FEATURENAME'.
-* **hotfix** is meant to prepare for a new release, and fixes some bugs from the corresponding tag on the master branch.
+This fork uses `main` as its only permanent branch. Changes to NanaPlus target
+`main`; contributions to the original Nana project follow the upstream
+[repository's guidelines](https://github.com/cnjinhao/nana).

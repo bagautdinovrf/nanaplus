@@ -1786,7 +1786,7 @@ namespace detail{
 #if defined(NANA_WINDOWS)
 			if(cap)
 				::SetCapture(reinterpret_cast<HWND>(wd));
-			else
+			else if (::GetCapture() == reinterpret_cast<HWND>(wd))
 				::ReleaseCapture();
 #elif defined(NANA_X11)
 			nana::detail::platform_scope_guard psg;
