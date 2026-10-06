@@ -83,6 +83,10 @@ namespace nana::widgets::skeletons
 
 		size caret_size() const;
 		const point& content_origin() const;
+        void restore_content_origin(const point&);
+        point content_coordinates(upoint) const;
+        upoint content_anchor() const;
+        void scroll_space(unsigned);
 
 		void set_highlight(const ::std::string& name, const ::nana::color&, const ::nana::color&);
 		void erase_highlight(const ::std::string& name);
@@ -140,6 +144,9 @@ namespace nana::widgets::skeletons
 		renderers& customized_renderers();
 
 		unsigned line_height() const;
+        void line_height(unsigned);
+        void text_y_offset(int);
+        void keep_scrollbars_at_border() { border_scrollbars_ = true; }
 		unsigned screen_lines(bool completed_line = false) const;
 
 		bool getline(std::size_t pos, ::std::wstring&) const;
@@ -298,6 +305,9 @@ namespace nana::widgets::skeletons
 		event_interface *			event_handler_{ nullptr };
 
 		wchar_t mask_char_{0};
+        unsigned line_height_override_{};
+        int text_y_offset_{};
+        bool border_scrollbars_{};
 
 		bool im_candidate_mode_{ false };
 

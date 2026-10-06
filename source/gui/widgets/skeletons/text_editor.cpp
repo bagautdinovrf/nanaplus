@@ -1038,7 +1038,21 @@ namespace nana::widgets::skeletons
 		return { 1, line_height() };
 	}
 
-	const point& text_editor::content_origin() const
+	void text_editor::restore_content_origin(const point& pos) {
+        impl_->cview->move_origin(pos - impl_->cview->origin());
+        render(api::focus_window() == window_);
+        api::update_window(window_);
+    }
+    point text_editor::content_coordinates(upoint pos) const { return _m_caret_to_coordinate(pos, false); }
+    upoint text_editor::content_anchor() const { return _m_coordinate_to_caret(text_area_.area.position(), true); }
+    void text_editor::scroll_space(unsigned pixels) {
+        if (impl_->cview->space() == pixels) return;
+        impl_->cview->space(pixels);
+        _m_reset_content_size(true);
+        render(api::focus_window() == window_);
+    }
+
+    const point& text_editor::content_origin() const
 	{
 		return impl_->cview->origin();
 	}
@@ -1281,7 +1295,7 @@ namespace nana::widgets::skeletons
 
 		impl_->cview->disp_area(area, 
 			{ -(1 + static_cast<int>(text_area_.padding_left)), 1 + static_cast<int>(text_area_.padding_bottom) },
-			{ 1 + static_cast<int>(text_area_.padding_top) , -(1 + static_cast<int>(text_area_.padding_right)) },
+			{ 1 + static_cast<int>(text_area_.padding_top) + (border_scrollbars_ ? static_cast<int>(text_area_.padding_right) : 0), -(1 + static_cast<int>(text_area_.padding_right)) + (border_scrollbars_ ? static_cast<int>(text_area_.padding_right) : 0) },
 			{ 2 + text_area_.padding_left + text_area_.padding_right, 2 + text_area_.padding_top + text_area_.padding_bottom});
 
 		if (impl_->cview->content_size().empty() || this->attributes_.line_wrapped)
@@ -1405,9 +1419,25 @@ namespace nana::widgets::skeletons
 		return impl_->customized_renderers;
 	}
 
-	unsigned text_editor::line_height() const
-	{
-		unsigned ascent, descent, internal_leading;
+	void text_editor::line_height(unsigned pixels) {
+        if (line_height_override_ == pixels) return;
+        line_height_override_ = pixels;
+        _m_reset_content_size(true);
+        render(api::focus_window() == window_);
+    }
+    void text_editor::text_y_offset(int pixels) {
+        if (text_y_offset_ == pixels) return;
+        text_y_offset_ = pixels;
+        reset_caret();
+        render(api::focus_window() == window_);
+    }
+
+    unsigned text_editor::line_height() const {
+        if (line_height_override_) {
+            impl_->cview->step(line_height_override_, false);
+            return line_height_override_;
+        }
+        unsigned ascent, descent, internal_leading;
 		if (!graph_.text_metrics(ascent, descent, internal_leading))
 			return 0;
 
@@ -3480,9 +3510,9 @@ namespace nana::widgets::skeletons
 		{
 			unsigned px = line_height();
 			if (text_area_.area.height > px)
-				return text_area_.area.y + static_cast<int>((text_area_.area.height - px) >> 1);
+				return text_area_.area.y + text_y_offset_ + static_cast<int>((text_area_.area.height - px) >> 1);
 		}
-		return text_area_.area.y;
+		return text_area_.area.y + text_y_offset_;
 	}
 
 	int text_editor::_m_text_topline() const
