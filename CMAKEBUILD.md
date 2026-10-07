@@ -8,7 +8,9 @@ The text editor extensions are the complete library changes previously applied
 by the consumer's `cmake/nana.cmake`:
 
 - `restore_content_origin(point)` restores the viewport after appending or
-  pruning a read-only journal, without moving the caret or selection.
+  pruning a read-only journal, without moving the caret or selection. Both
+  scrollbar values are synchronized with the clamped viewport, so subsequent
+  wheel, arrow and thumb input continues from the restored position.
 - `content_coordinates(upoint)` and `content_anchor()` preserve the visible
   text anchor when the consumer removes an old prefix.
 - `scroll_space(unsigned)` scales scrollbar width per editor.

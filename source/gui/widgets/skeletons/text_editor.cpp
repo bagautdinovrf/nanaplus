@@ -1040,6 +1040,9 @@ namespace nana::widgets::skeletons
 
 	void text_editor::restore_content_origin(const point& pos) {
         impl_->cview->move_origin(pos - impl_->cview->origin());
+        // Wheel and scrollbar input start from the scrollbar values, so keep
+        // them in sync even when the requested origin itself did not change.
+        impl_->cview->sync(false);
         render(api::focus_window() == window_);
         api::update_window(window_);
     }
