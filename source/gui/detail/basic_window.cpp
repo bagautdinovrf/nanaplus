@@ -11,6 +11,8 @@
 */
 
 #include "basic_window.hpp"
+#include <nana/gui/detail/bedrock.hpp>
+#include <nana/gui/detail/window_manager.hpp>
 #include <nana/gui/widgets/skeletons/text_editor.hpp>
 #include <nana/gui/detail/native_window_interface.hpp>
 
@@ -346,7 +348,8 @@ namespace nana
 				if (drawer.graphics.empty())
 					return true;
 
-				if (!this->root_widget->other.attribute.root->lazy_update)
+				if (!this->root_widget->other.attribute.root->lazy_update
+					&& !this->root_widget->other.attribute.root->flushing_updates)
 					return false;
 				
 				if (nullptr == effect.bground)
@@ -362,6 +365,11 @@ namespace nana
 				for (auto i = this->root_widget->other.attribute.root->update_requesters.cbegin(); i != this->root_widget->other.attribute.root->update_requesters.cend();)
 				{
 					auto req = *i;
+					if (!bedrock::instance().wd_manager().available(req))
+					{
+						i = this->root_widget->other.attribute.root->update_requesters.erase(i);
+						continue;
+					}
 					//Avoid redundancy, don't insert the window if it or its ancestor window already exist in the container.
 					if ((req == this) || req->is_ancestor_of(this))
 						return true;

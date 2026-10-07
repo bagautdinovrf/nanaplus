@@ -1,0 +1,24 @@
+name: Windows
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  msvc-cpp23:
+    name: MSVC C++23 and batching regressions
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Configure NanaPlus and standalone tests
+        run: cmake -S tests/batch_updates -B build/batch-updates -G "Visual Studio 17 2022" -A x64
+      - name: Build Release
+        run: cmake --build build/batch-updates --config Release --parallel 2
+      - name: Run batching regressions
+        run: ctest --test-dir build/batch-updates -C Release --output-on-failure

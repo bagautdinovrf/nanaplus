@@ -47,11 +47,12 @@ namespace nana::detail
 			/// Enables lazy_update
 			root_guard(bedrock& brock, basic_window* root_wd);
 
-			/// Disables lazy-update and clears update requesters queue.
+			/// Restores lazy-update; only the owning guard clears pending requests.
 			~root_guard();
 		private:
 			bedrock& brock_;
 			basic_window* const root_wd_;
+			const bool previous_lazy_update_;
 		};
 
 		~bedrock();

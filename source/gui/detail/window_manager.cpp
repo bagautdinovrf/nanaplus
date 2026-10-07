@@ -29,6 +29,7 @@
 #include <algorithm>
 #include <iterator>
 #include <deque>
+#include <unordered_set>
 
 namespace nana
 {
@@ -915,33 +916,51 @@ namespace detail
 		void window_manager::update_requesters(basic_window* root_wd)
 		{
 			internal_scope_guard lock;
+			if (!this->available(root_wd) || root_wd->other.attribute.root->flushing_updates
+				|| root_wd->other.attribute.root->batch_depth)
+				return;
 
-			while (this->available(root_wd) && root_wd->other.attribute.root->update_requesters.size())
+			root_wd->other.attribute.root->flushing_updates = true;
+			struct flush_guard
 			{
-				// Painting a transparent widget can run user drawing callbacks. A
-				// callback may start another batch, whose flush must see only its
-				// own requests rather than re-entering this pending range.
-				// A native event keeps lazy_update enabled until its root guard
-				// exits. Drain subsequent requests too, before that guard clears
-				// the queue; callbacks can enqueue work without re-entering here.
-				std::vector<basic_window*> requesters;
-				requesters.swap(root_wd->other.attribute.root->update_requesters);
-				for (auto wd : requesters)
+				window_manager& manager;
+				basic_window* root;
+				~flush_guard()
 				{
-					using paint_operation = window_layer::paint_operation;
-					if (!this->available(root_wd))
-						break;
-					if (!this->available(wd))
-						continue;
-
-					//#431
-					//If a window has bground effect, it may be a transparent. So it should be redrawn to ensure the background of transparent
-					//window gets updating.
-					window_layer::paint(wd, (wd->effect.bground ? paint_operation::try_refresh : paint_operation::have_refreshed), false);
-					this->map(wd, true);
+					if (manager.available(root))
+					{
+						root->other.attribute.root->update_requesters.clear();
+						root->other.attribute.root->flushing_updates = false;
+					}
 				}
-			}
+			} guard{*this, root_wd};
 
+			// Keep current, completed and pending requests visible to the normal
+			// ancestor/sibling deduplication during paint callbacks. Never retain
+			// an iterator across paint: callbacks may coalesce or append requests.
+			// The history also bounds a cycle if an ancestor replaces a completed
+			// request and a later callback tries to enqueue that window again.
+			std::unordered_set<basic_window*> painted;
+			while (this->available(root_wd))
+			{
+				basic_window* next = nullptr;
+				for (auto wd : root_wd->other.attribute.root->update_requesters)
+				{
+					if (this->available(wd) && painted.find(wd) == painted.end())
+					{
+						next = wd;
+						break;
+					}
+				}
+				if (!next)
+					break;
+				painted.insert(next);
+
+				using paint_operation = window_layer::paint_operation;
+				// #431: transparent windows need their background refreshed.
+				window_layer::paint(next, (next->effect.bground ? paint_operation::try_refresh : paint_operation::have_refreshed), false);
+				this->map(next, true);
+			}
 		}
 
 		void window_manager::refresh_tree(basic_window* wd)

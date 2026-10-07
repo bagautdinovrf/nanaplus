@@ -48,10 +48,18 @@ Empty actions and invalid windows are ignored. If the action throws, the batch
 restores normal updates, flushes and clears pending requests when the root still
 exists, then rethrows the original exception. A flush failure also clears pending
 requests and propagates unless an original action exception takes priority.
-The pending list is detached before flushing: a drawing callback which starts
-another batch cannot recursively flush or invalidate the original pending list.
-Requests enqueued during that flush are drained before the native event guard
-clears its queue, including nested batches inside transparent drawing callbacks.
+Each root has a separate batch depth and flush guard. Synchronous native events
+cannot drain an action that has not finished yet. Batches started by drawing callbacks join
+that flush; they cannot recursively drain or clear its queue. Current, completed
+and pending requests remain visible to the usual ancestor deduplication. Each
+requester is processed at most once per flush, so mutually refreshing transparent
+widgets cannot keep the drain running indefinitely. Newly requested independent
+widgets are drained before returning. Iterators never survive a paint callback.
+Nested native event guards preserve the outer lazy-update state and queue.
+The queue and flush guard are cleared on success and on exceptions; a later
+independent batch can refresh the same widgets again. As with Nana's original
+deduplication, this is not a fixed-point solver for arbitrary drawing callbacks
+that repeatedly change already painted widgets.
 
 ## Menu measurements
 
@@ -136,3 +144,19 @@ called. No table iterators survive a callback, and remaining actions stay
 available to nested event loops. Actions queued by a callback are also drained
 before returning. The Windows modal loop dispatches these actions before
 collecting deleted windows, matching the other event loop branches.
+
+## Batching regression checks
+
+The Windows workflow builds this checkout with MSVC and C++23, then runs the
+standalone scenarios in `tests/batch_updates`. They exercise actual offscreen
+widgets, bounded mutual refresh, same-root and cross-root nesting, exceptions,
+native event batching and a subsequent independent update. Run locally with:
+
+```powershell
+cmake -S tests/batch_updates -B build/batch-updates -G "Visual Studio 17 2022" -A x64
+cmake --build build/batch-updates --config Release --parallel 2
+ctest --test-dir build/batch-updates -C Release --output-on-failure
+```
+
+`.gitattributes` keeps text files in LF and Visual Studio project/solution files
+and BAT scripts in CRLF in working copies. Git stores normalized text as LF.

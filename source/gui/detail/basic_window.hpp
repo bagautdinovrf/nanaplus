@@ -215,6 +215,8 @@ namespace nana::detail
 			{
 				bool ime_enabled{ false };
 				bool lazy_update{ false };	///< Indicates whether the window is in lazy-updating mode.
+				unsigned batch_depth{ 0 };
+				bool flushing_updates{ false };	///< One non-reentrant drain per root.
 
 				container	update_requesters;	///< Container for lazy-updating requesting windows.
 				container	tabstop;

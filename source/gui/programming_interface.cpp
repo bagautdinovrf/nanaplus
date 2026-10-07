@@ -1118,12 +1118,9 @@ namespace api
 			return;
 
 		auto* root = wd->root_widget;
-		if (root->other.attribute.root->lazy_update)
-		{
-			action();
-			return;
-		}
-
+		const bool previous_lazy = root->other.attribute.root->lazy_update;
+		const bool owns_batch = !previous_lazy && !root->other.attribute.root->flushing_updates;
+		++root->other.attribute.root->batch_depth;
 		root->other.attribute.root->lazy_update = true;
 		std::exception_ptr failure;
 		try
@@ -1137,10 +1134,11 @@ namespace api
 
 		if (manager.available(root))
 		{
-			root->other.attribute.root->lazy_update = false;
+			--root->other.attribute.root->batch_depth;
 			try
 			{
-				manager.update_requesters(root);
+				if (owns_batch)
+					manager.update_requesters(root);
 			}
 			catch (...)
 			{
@@ -1150,7 +1148,11 @@ namespace api
 					failure = std::current_exception();
 			}
 			if (manager.available(root))
-				root->other.attribute.root->update_requesters.clear();
+			{
+				root->other.attribute.root->lazy_update = previous_lazy;
+				if (owns_batch)
+					root->other.attribute.root->update_requesters.clear();
+			}
 		}
 
 		if (failure)
