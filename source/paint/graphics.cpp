@@ -489,6 +489,10 @@ namespace paint
 			impl_->font_shadow = f;
 			if(impl_->handle && (false == f.empty()))
 			{
+				// The shadow assignment above also applies to empty graphics and
+				// empty fonts. Only skip reselecting an unchanged realized font.
+				if (impl_->handle->font == f.impl_->real_font)
+					return;
 				impl_->handle->font = f.impl_->real_font;
 #if defined(NANA_WINDOWS)
 				::SelectObject(impl_->handle->context, reinterpret_cast<HFONT>(f.impl_->real_font->native_handle()));

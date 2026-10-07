@@ -14,6 +14,9 @@ by the consumer's `cmake/nana.cmake`:
 - `content_coordinates(upoint)` and `content_anchor()` preserve the visible
   text anchor when the consumer removes an old prefix.
 - `scroll_space(unsigned)` scales scrollbar width per editor.
+- `scroll_corner_color(color)` colors the scrollbar intersection without
+  changing text metrics, padding or viewport. Its default is Nana's original
+  `button_face`; an unchanged color is a no-op and updates respect batching.
 - `line_height(unsigned)` overrides line pitch per editor; zero uses the
   original font metrics.
 - `text_y_offset(int)` aligns text baselines without changing the scroll range.
@@ -22,6 +25,71 @@ by the consumer's `cmake/nana.cmake`:
 
 Default settings preserve upstream text editor behavior. Consumers must rebuild
 Nana and their application together after these header changes.
+
+When both scrollbars are visible, their lengths end at their shared corner even
+when asymmetric padding offsets them independently. Single-scrollbar placement,
+text bounds and scroll ranges retain their existing behavior.
+
+## Batched widget updates
+
+`api::batch_updates(window, action)` keeps changes to widget buffers inside the
+window's root pending until the synchronous action finishes. A journal can
+append or prune text and restore its viewport, caret and selection before any
+intermediate scrollbar or text position is presented. Ordinary `refresh_window`
+and `update_window` calls retain their buffer updates; Nana presents the final
+accumulated result when the owning batch finishes. Nested batches leave an
+already active outer batch and its pending requests intact.
+
+Call it on the owning GUI thread. The action must not pump events, enter a
+modal loop, or force an immediate update with `update_window(window, true)`.
+`refresh_window_tree` also composes the tree immediately; use it only after
+all changes are complete, or outside a batch.
+Empty actions and invalid windows are ignored. If the action throws, the batch
+restores normal updates, flushes and clears pending requests when the root still
+exists, then rethrows the original exception. A flush failure also clears pending
+requests and propagates unless an original action exception takes priority.
+The pending list is detached before flushing: a drawing callback which starts
+another batch cannot recursively flush or invalidate the original pending list.
+Requests enqueued during that flush are drained before the native event guard
+clears its queue, including nested batches inside transparent drawing callbacks.
+
+## Menu measurements
+
+Popup menus cache their measured client size across hover and keyboard redraws.
+Changing text, items, renderer, font, DPI, borders or size limits invalidates
+the cache. Placement and monitor work-area checks still run on every refresh,
+so the optimization does not pin a menu to stale screen coordinates.
+
+## UTF-8 captions
+
+`is_utf8` accepts all Unicode scalar values through U+10FFFF, including
+four-byte emoji, while rejecting truncated sequences, invalid continuation
+bytes, overlong encodings, surrogate values and values above the Unicode limit.
+Empty views and embedded NUL bytes are handled by their explicit length.
+The UTF-8/UTF-16 converters retain supplementary characters and the text after
+them, including the U+10000 offset when decoding little-endian surrogate pairs.
+This keeps narrow caption measurements consistent with their complete wide
+text. The converters' legacy malformed-input policy is otherwise unchanged.
+
+## Repeated font assignments
+
+`api::typeface(window, font)` skips font notifications and repainting when the
+widget already uses the same resolved font. Nana's font cache returns the same
+font identity for equivalent family, size, style and pixel-height requests, so
+recreating an equivalent font during layout also preserves cached text metrics.
+An actual font change retains the original notification and refresh behavior,
+including recalculation of text-editor line widths and scrollbar ranges.
+`graphics::typeface(font)` likewise avoids selecting and measuring an unchanged
+resolved font during repeated drawing. It still records the font shadow for
+empty graphics, and an empty font retains the existing realized font as before.
+
+## Unwrapped caret coordinates
+
+The editor computes the vertical content coordinate of an unwrapped caret
+directly from its logical row. Each unwrapped logical row is one visual line,
+so this avoids walking every preceding row on each caret reset or anchor query.
+Wrapped text keeps the original visual-line summation. Horizontal shaping,
+selection, viewport restoration and maximum-line width semantics are unchanged.
 
 ## Per-monitor DPI integration
 

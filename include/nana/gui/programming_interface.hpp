@@ -19,6 +19,7 @@
 #include "detail/widget_content_measurer_interface.hpp"
 #include "detail/virtual_keyboard.hpp"
 #include <nana/paint/image.hpp>
+#include <functional>
 #include <memory>
 
 namespace nana
@@ -374,6 +375,18 @@ namespace api
 	void refresh_window(window window_handle);
 	void refresh_window_tree(window);      ///< Refreshes the specified window and all its children windows, then displays it immediately
 	void update_window(window, bool now = false);            ///< Copies the off-screen buffer to the screen for immediate display.
+
+	/// Batches screen updates for the root window containing wd.
+	/**
+	 * Runs action synchronously on the owning GUI thread. Ordinary refresh_window
+	 * and update_window calls update widget buffers, then present the accumulated
+	 * result together. Nested batches preserve the outer batch's pending updates.
+	 * The action must not pump events, enter a modal loop, or call update_window
+	 * with now=true. refresh_window_tree also composes immediately; only call it
+	 * after all changes are complete. Empty actions and invalid windows are ignored. Pending updates
+	 * are flushed even if action throws, then its original exception is rethrown.
+	 */
+	void batch_updates(window wd, const std::function<void()>& action);
 
 	void window_caption(window, const std::string& title_utf8);
 	void window_caption(window, const std::wstring& title);

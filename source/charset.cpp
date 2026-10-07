@@ -450,17 +450,17 @@ namespace nana
 					//return 0;
 					return def_encoding_error_police->next_code_point(p, end);
 				}
-				else if(ch < 0xE0 && (p + 1 <= end))      // two byte character
+				else if(ch < 0xE0 && (end - p >= 2))      // two byte character
 				{
 					code = ((ch & 0x1F) << 6) | (p[1] & 0x3F);
 					p += 2;
 				}
-				else if(ch < 0xF0 && (p + 2 <= end))     // 3 byte character
+				else if(ch < 0xF0 && (end - p >= 3))     // 3 byte character
 				{
 					code = ((((ch & 0xF) << 6) | (p[1] & 0x3F)) << 6) | (p[2] & 0x3F);
 					p += 3;
 				}
-				else if(ch < 0x1F && (p + 3 <= end))   // 4 byte character
+				else if(ch >= 0xF0 && ch <= 0xF4 && (end - p >= 4))   // 4 byte character
 				{
 					code = ((((((ch & 0x7) << 6) | (p[1] & 0x3F)) << 6) | (p[2] & 0x3F)) << 6) | (p[3] & 0x3F);
 					p += 4;
@@ -486,7 +486,7 @@ namespace nana
 					unsigned long ch0 = bytes[0] | (bytes[1] << 8);
 					unsigned long ch1 = bytes[2] | (bytes[3] << 8);
 
-					code = ((ch0 & 0x3FF) << 10) | (ch1 & 0x3FF);
+					code = (((ch0 & 0x3FF) << 10) | (ch1 & 0x3FF)) + 0x10000;
 					bytes += 4;
 				}
 				else if(end - bytes >= 2)

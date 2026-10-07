@@ -224,8 +224,26 @@ namespace nana {
 
 					bool const vert_allowed = (cv_scroll->enabled_scrolls == scrolls::vert || cv_scroll->enabled_scrolls == scrolls::both);
 					bool const horz_allowed = (cv_scroll->enabled_scrolls == scrolls::horz || cv_scroll->enabled_scrolls == scrolls::both);
+					bool const show_vert = (imd_area.width != disp_area.width) && vert_allowed;
+					bool const show_horz = (imd_area.height != disp_area.height) && horz_allowed;
+					nana::rectangle vert_area{
+						disp_area.x + static_cast<int>(imd_area.width) + skew_vert.x,
+						disp_area.y + skew_vert.y, space, imd_area.height + extra_px.height
+					};
+					nana::rectangle horz_area{
+						disp_area.x + skew_horz.x,
+						disp_area.y + static_cast<int>(imd_area.height) + skew_horz.y,
+						imd_area.width + extra_px.width, space
+					};
+					if (show_vert && show_horz)
+					{
+						// Padding can offset the bars independently. End both at their
+						// intersection, without gaps or overlap at the corner.
+						vert_area.height = static_cast<unsigned>((std::max)(0, horz_area.y - vert_area.y));
+						horz_area.width = static_cast<unsigned>((std::max)(0, vert_area.x - horz_area.x));
+					}
 
-					if ((imd_area.width != disp_area.width) && vert_allowed)
+					if (show_vert)
 					{
 						if (cv_scroll->vert.empty())
 						{
@@ -234,12 +252,7 @@ namespace nana {
 							this->passive = false;
 						}
 						
-						cv_scroll->vert.move({
-							disp_area.x + static_cast<int>(imd_area.width) + skew_vert.x,
-							disp_area.y + skew_vert.y,
-							this->space,
-							imd_area.height + extra_px.height
-						});
+						cv_scroll->vert.move(vert_area);
 
 						cv_scroll->vert.amount(content_size.height);
 						cv_scroll->vert.range(imd_area.height);
@@ -255,7 +268,7 @@ namespace nana {
 							origin.y = 0;
 					}
 
-					if ((imd_area.height != disp_area.height) && horz_allowed)
+					if (show_horz)
 					{
 						if (cv_scroll->horz.empty())
 						{
@@ -264,12 +277,7 @@ namespace nana {
 							this->passive = false;
 						}
 
-						cv_scroll->horz.move({
-							disp_area.x + skew_horz.x,
-							disp_area.y + static_cast<int>(imd_area.height) + skew_horz.y,
-							imd_area.width + extra_px.width,
-							this->space
-						});
+						cv_scroll->horz.move(horz_area);
 
 						cv_scroll->horz.amount(content_size.width);
 						cv_scroll->horz.range(imd_area.width);
@@ -432,11 +440,11 @@ namespace nana {
 				return r;
 			}
 
-			void content_view::draw_corner(graph_reference graph)
+			void content_view::draw_corner(graph_reference graph, const color& bgcolor)
 			{
 				auto r = corner();
 				if ((!r.empty()) && (scrolls::both == impl_->cv_scroll->enabled_scrolls))
-					graph.rectangle(r, true, colors::button_face);
+					graph.rectangle(r, true, bgcolor);
 			}
 
 			rectangle content_view::view_area() const

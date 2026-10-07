@@ -87,6 +87,8 @@ namespace nana::widgets::skeletons
         point content_coordinates(upoint) const;
         upoint content_anchor() const;
         void scroll_space(unsigned);
+        /// Sets the scrollbar intersection color without changing layout.
+        void scroll_corner_color(const ::nana::color&);
 
 		void set_highlight(const ::std::string& name, const ::nana::color&, const ::nana::color&);
 		void erase_highlight(const ::std::string& name);

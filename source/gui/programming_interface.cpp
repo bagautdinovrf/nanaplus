@@ -12,6 +12,7 @@
  */
 
 #include <iostream> // for debugging in make_center
+#include <exception>
 
 #include <nana/config.hpp>
 
@@ -1109,6 +1110,53 @@ namespace api
 			restrict::wd_manager().update(wd, false, true);
 	}
 
+	void batch_updates(window wd, const std::function<void()>& action)
+	{
+		internal_scope_guard lock;
+		auto& manager = restrict::wd_manager();
+		if (!action || !manager.available(wd))
+			return;
+
+		auto* root = wd->root_widget;
+		if (root->other.attribute.root->lazy_update)
+		{
+			action();
+			return;
+		}
+
+		root->other.attribute.root->lazy_update = true;
+		std::exception_ptr failure;
+		try
+		{
+			action();
+		}
+		catch (...)
+		{
+			failure = std::current_exception();
+		}
+
+		if (manager.available(root))
+		{
+			root->other.attribute.root->lazy_update = false;
+			try
+			{
+				manager.update_requesters(root);
+			}
+			catch (...)
+			{
+				// A failed flush must neither leave stale requests nor replace the
+				// exception from the action that initiated the batch.
+				if (!failure)
+					failure = std::current_exception();
+			}
+			if (manager.available(root))
+				root->other.attribute.root->update_requesters.clear();
+		}
+
+		if (failure)
+			std::rethrow_exception(failure);
+	}
+
 	void window_caption(window wd, const std::string& title_utf8)
 	{
 		throw_not_utf8(title_utf8);
@@ -1531,6 +1579,10 @@ namespace api
 		internal_scope_guard lock;
 		if(is_window(wd))
 		{
+			// Equivalent font requests share the same resolved font. Repeating
+			// them must not invalidate every cached text line during layout.
+			if (wd->drawer.graphics.typeface() == font)
+				return;
 			wd->drawer.graphics.typeface(font);
 			wd->drawer.typeface_changed();
 			refresh_window(wd);

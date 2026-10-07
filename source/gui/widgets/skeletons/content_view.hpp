@@ -72,7 +72,7 @@ namespace skeletons
 
 		const point& origin() const;
 		rectangle corner() const;
-		void draw_corner(graph_reference);
+		void draw_corner(graph_reference, const color& bgcolor = colors::button_face);
 
 		rectangle view_area() const;
 		rectangle view_area(const size& alt_content_size) const;

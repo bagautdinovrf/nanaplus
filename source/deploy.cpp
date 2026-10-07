@@ -30,29 +30,40 @@ namespace nana
 {
 	bool is_utf8(std::string_view str)
 	{
-		auto ustr = reinterpret_cast<const unsigned char*>(str.data());
-		auto end = ustr + str.size();
-
-		while (ustr < end)
+		const auto bytes = reinterpret_cast<const unsigned char*>(str.data());
+		for (std::size_t index = 0; index < str.size();)
 		{
-			const auto uv = *ustr;
-			if (uv < 0x80)
-			{
-				++ustr;
+			const auto lead = bytes[index++];
+			if (lead < 0x80)
 				continue;
+
+			unsigned trailing;
+			unsigned second_min = 0x80, second_max = 0xBF;
+			if (lead >= 0xC2 && lead <= 0xDF)
+				trailing = 1;
+			else if (lead >= 0xE0 && lead <= 0xEF)
+			{
+				trailing = 2;
+				if (lead == 0xE0) second_min = 0xA0; // No overlong encodings.
+				if (lead == 0xED) second_max = 0x9F; // No UTF-16 surrogates.
 			}
-
-			if (uv < 0xC0)
-				return false;
-
-			if ((uv < 0xE0) && (end - ustr > 1))
-				ustr += 2;
-			else if ((uv < 0xF0) && (end - ustr > 2))
-				ustr += 3;
-			else if ((uv < 0x1F) && (end - ustr > 3))
-				ustr += 4;
+			else if (lead >= 0xF0 && lead <= 0xF4)
+			{
+				trailing = 3;
+				if (lead == 0xF0) second_min = 0x90;
+				if (lead == 0xF4) second_max = 0x8F; // At most U+10FFFF.
+			}
 			else
 				return false;
+
+			if (str.size() - index < trailing || bytes[index] < second_min || bytes[index] > second_max)
+				return false;
+			++index;
+			while (--trailing)
+			{
+				if ((bytes[index++] & 0xC0) != 0x80)
+					return false;
+			}
 		}
 		return true;
 	}

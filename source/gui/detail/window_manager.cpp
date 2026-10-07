@@ -916,11 +916,21 @@ namespace detail
 		{
 			internal_scope_guard lock;
 
-			if (this->available(root_wd) && root_wd->other.attribute.root->update_requesters.size())
+			while (this->available(root_wd) && root_wd->other.attribute.root->update_requesters.size())
 			{
-				for (auto wd : root_wd->other.attribute.root->update_requesters)
+				// Painting a transparent widget can run user drawing callbacks. A
+				// callback may start another batch, whose flush must see only its
+				// own requests rather than re-entering this pending range.
+				// A native event keeps lazy_update enabled until its root guard
+				// exits. Drain subsequent requests too, before that guard clears
+				// the queue; callbacks can enqueue work without re-entering here.
+				std::vector<basic_window*> requesters;
+				requesters.swap(root_wd->other.attribute.root->update_requesters);
+				for (auto wd : requesters)
 				{
 					using paint_operation = window_layer::paint_operation;
+					if (!this->available(root_wd))
+						break;
 					if (!this->available(wd))
 						continue;
 

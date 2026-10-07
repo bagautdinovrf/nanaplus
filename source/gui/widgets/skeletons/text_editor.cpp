@@ -521,6 +521,7 @@ namespace nana::widgets::skeletons
 		}keywords;
 
 		std::unique_ptr<content_view> cview;
+		::nana::color scroll_corner_color{colors::button_face};
 	};
 
 
@@ -1053,6 +1054,15 @@ namespace nana::widgets::skeletons
         impl_->cview->space(pixels);
         _m_reset_content_size(true);
         render(api::focus_window() == window_);
+    }
+
+    void text_editor::scroll_corner_color(const ::nana::color& color) {
+        if (impl_->scroll_corner_color == color) return;
+        impl_->scroll_corner_color = color;
+        if (graph_ && !impl_->cview->corner().empty()) {
+            draw_corner();
+            api::update_window(window_);
+        }
     }
 
     const point& text_editor::content_origin() const
@@ -2028,7 +2038,7 @@ namespace nana::widgets::skeletons
 
 	void text_editor::draw_corner()
 	{
-		impl_->cview->draw_corner(graph_);
+		impl_->cview->draw_corner(graph_, impl_->scroll_corner_color);
 	}
 
 	void text_editor::render(bool has_focus)
@@ -2867,10 +2877,13 @@ namespace nana::widgets::skeletons
 		auto const behavior = impl_->capacities.behavior;
 		auto const sections = behavior->line(pos.y);
 
-		std::size_t lines = 0;	//lines before the caret line;
-		for (std::size_t i = 0; i < pos.y; ++i)
+		// Unwrapped logical lines each occupy exactly one visual line.
+		std::size_t lines = pos.y;
+		if (attributes_.line_wrapped)
 		{
-			lines += behavior->take_lines(i);
+			lines = 0;
+			for (std::size_t i = 0; i < pos.y; ++i)
+				lines += behavior->take_lines(i);
 		}
 
 		auto const text_ptr = textbase().getline(pos.y).c_str();

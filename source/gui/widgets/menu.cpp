@@ -41,6 +41,7 @@ namespace nana
 			unsigned max_pixels;
 			unsigned item_pixels;
 			nana::point gaps;
+			std::size_t layout_revision{0};
 		};
 
 		//A helper function to check the style parameter
@@ -296,6 +297,7 @@ namespace nana
 			void renderer(const pat::cloneable<renderer_interface>& rd)
 			{
 				renderer_ = rd;
+				++root_.layout_revision;
 			}
 		private:
 			menu_type root_;
@@ -381,6 +383,7 @@ namespace nana
 			{
 				mbuilder_ = &mbuilder;
 				menu_ = &menu;
+				client_size_.valid = false;
 				fn_close_tree_ = std::move(menu_tree_destroyer);
 			}
 
@@ -705,6 +708,16 @@ namespace nana
 
 			nana::size _m_client_size() const
 			{
+				const auto dpi = api::window_dpi(widget_->handle());
+				const auto font = graph_->typeface();
+				const auto renderer_revision = mbuilder_->data().layout_revision;
+				if (client_size_.valid && client_size_.revision == menu_->layout_revision
+					&& client_size_.renderer_revision == renderer_revision
+					&& client_size_.dpi == dpi && client_size_.font == font
+					&& client_size_.max_pixels == menu_->max_pixels && client_size_.item_pixels == menu_->item_pixels
+					&& client_size_.border == detail_.border)
+					return client_size_.value;
+
 				nana::size size;
 				auto unit = platform_abstraction::dpi_scale(widget_->handle(), 1u);
 				if (menu_->items.size())
@@ -728,6 +741,15 @@ namespace nana
 				if (size.width > menu_->max_pixels)
 					size.width = menu_->max_pixels;
 
+				client_size_.valid = true;
+				client_size_.revision = menu_->layout_revision;
+				client_size_.renderer_revision = renderer_revision;
+				client_size_.dpi = dpi;
+				client_size_.font = font;
+				client_size_.max_pixels = menu_->max_pixels;
+				client_size_.item_pixels = menu_->item_pixels;
+				client_size_.border = detail_.border;
+				client_size_.value = size;
 				return size;
 			}
 
@@ -765,6 +787,20 @@ namespace nana
 			menu_type* menu_{ nullptr };
 
 			std::function<void()> fn_close_tree_;
+			// Hover and keyboard navigation redraw the menu without changing its
+			// measured content. Keep placement/work-area checks live, while avoiding
+			// a fresh text-extent pass until an input to the measurement changes.
+			struct client_size_cache
+			{
+				bool valid{false};
+				std::size_t revision{0}, renderer_revision{0};
+				std::size_t dpi{0};
+				unsigned max_pixels{0}, item_pixels{0};
+				paint::font font;
+				upoint border;
+				nana::size value;
+			};
+			mutable client_size_cache client_size_;
 
 			struct state
 			{
@@ -1204,12 +1240,14 @@ namespace nana
 		{
 			std::unique_ptr<item_type> item{ new item_type{ std::move(text_utf8), handler } };
 			impl_->mbuilder.data().items.emplace_back(std::move(item));
+			++impl_->mbuilder.data().layout_revision;
 			return item_proxy{size() - 1, this};
 		}
 
 		void menu::append_splitter()
 		{
 			impl_->mbuilder.data().items.emplace_back(new item_type);
+			++impl_->mbuilder.data().layout_revision;
 		}
 
 		auto menu::insert(std::size_t pos, std::string text_utf8, const event_fn_t& handler) -> item_proxy
@@ -1228,6 +1266,7 @@ namespace nana
 #endif
 				std::move(item));
 
+			++impl_->mbuilder.data().layout_revision;
 			return item_proxy{ pos, this};
 		}
 
@@ -1235,6 +1274,7 @@ namespace nana
 		{
 			internal_scope_guard lock;
 			impl_->mbuilder.data().items.clear();
+			++impl_->mbuilder.data().layout_revision;
 		}
 
 		void menu::enabled(std::size_t index, bool enable)
@@ -1252,7 +1292,10 @@ namespace nana
 			internal_scope_guard lock;
 			auto & items = impl_->mbuilder.data().items;
 			if(index < items.size())
+			{
 				items.erase(items.begin() + index);
+				++impl_->mbuilder.data().layout_revision;
+			}
 		}
 
 		void menu::image(std::size_t index, const paint::image& img)
@@ -1263,12 +1306,14 @@ namespace nana
 		void menu::text(std::size_t index, std::string text_utf8)
 		{
 			impl_->mbuilder.data().items.at(index)->text.swap(text_utf8);
+			++impl_->mbuilder.data().layout_revision;
 		}
 
 #ifdef __cpp_char8_t
 		void menu::text(std::size_t index, std::u8string_view text)
 		{
 			impl_->mbuilder.data().items.at(index)->text = to_string(text);
+			++impl_->mbuilder.data().layout_revision;
 		}
 #endif
 
@@ -1387,6 +1432,7 @@ namespace nana
 		menu& menu::max_pixels(unsigned px)
 		{
 			impl_->mbuilder.data().max_pixels = (px > 100 ? px : 100);
+			++impl_->mbuilder.data().layout_revision;
 			return *this;
 		}
 
@@ -1398,6 +1444,7 @@ namespace nana
 		menu& menu::item_pixels(unsigned px)
 		{
 			impl_->mbuilder.data().item_pixels = px;
+			++impl_->mbuilder.data().layout_revision;
 			return *this;
 		}
 
