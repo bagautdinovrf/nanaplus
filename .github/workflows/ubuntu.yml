@@ -4,26 +4,32 @@ on: [push, pull_request]
 jobs:
   GCC-13:
     runs-on: ubuntu-24.04
-    #runs-on: ubuntu-latest
     steps:
-      - run: sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+      - run: sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+      - run: sudo apt-get update
       - run: sudo apt-get -y install libjpeg8-dev libpng-dev libasound2-dev libx11-dev libxft-dev libxcursor-dev cmake xvfb
-      #- run: sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 12
       - run: g++ -v
       - name: Check out repository code
         uses: actions/checkout@v4
-      # we are in /home/runner/work/nana/nana
-      - run: git clone --depth=1 --branch=develop https://github.com/qPCR4vir/nana-demo.git nana-demo
+      # nana-demo expects the library checkout at ../nana.
+      - name: Prepare Nana source directory
+        run: ln -s "$GITHUB_WORKSPACE" ../nana
+      - name: Clone nana-demo
+        run: git clone --depth=1 --branch=develop https://github.com/qPCR4vir/nana-demo.git nana-demo
         working-directory: ../
-      - run: mkdir nana-demo-build
+      - name: Create build directory
+        run: mkdir -p nana-demo-build
         working-directory: ../
-      - run: cmake -G"Unix Makefiles" ../nana-demo -DCMAKE_INSTALL_PREFIX=.. -DNANA_CMAKE_ENABLE_JPEG=ON -DNANA_CMAKE_FIND_BOOST_FILESYSTEM=OFF -DNANA_CMAKE_AUTOMATIC_GUI_TESTING=ON -DNANA_CMAKE_INSTALL=OFF
+      - name: Configure
+        run: cmake -G "Unix Makefiles" ../nana-demo -DCMAKE_INSTALL_PREFIX=.. -DNANA_CMAKE_ENABLE_JPEG=ON -DNANA_CMAKE_FIND_BOOST_FILESYSTEM=OFF -DNANA_CMAKE_AUTOMATIC_GUI_TESTING=ON -DNANA_CMAKE_INSTALL=OFF
         working-directory: ../nana-demo-build
-      - run: make install
+      - name: Build and install
+        run: make install
         working-directory: ../nana-demo-build
       - name: Setup xvfb for screen 0
         run: Xvfb :1 -screen 0 1600x1200x24 &
-      - run: ctest --verbose
+      - name: Run tests
+        run: ctest --verbose
         working-directory: ../nana-demo-build
         env:
           DISPLAY: :1
